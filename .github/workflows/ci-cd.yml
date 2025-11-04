@@ -212,10 +212,10 @@ jobs:
             echo "${{ secrets.DOCKERHUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
             echo "📥 Pulling latest Docker images..."
-            docker compose pull
+            docker-compose pull
 
             echo "🚀 Starting services with new images..."
-            docker compose up -d --remove-orphans
+            docker-compose up -d --remove-orphans
 
             echo "🧹 Cleaning up old images..."
             docker image prune -f
@@ -224,7 +224,7 @@ jobs:
             sleep 15
 
             echo "✅ Deployment completed!"
-            docker compose ps
+            docker-compose ps
 
       # 배포 검증
       - name: Verify Deployment
