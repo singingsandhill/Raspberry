@@ -6,6 +6,10 @@ services:
       - "8761:8761"
     networks:
       - microservices
+    environment:
+      - eureka.client.register-with-eureka=false
+      - eureka.client.fetch-registry=false
+      - eureka.server.wait-time-in-ms-when-sync-empty=0
 
   gateway:
     image: softbank2025/gateway
