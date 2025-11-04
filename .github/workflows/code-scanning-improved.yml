@@ -2,9 +2,13 @@ name: Code Static Analysis (SAST)
 
 on:
   push:
-    branches: [ main ]
+    branches:
+        - main
+        - 'feat/ci-cd-settings'
   pull_request:
-    branches: [ main ]
+    branches:
+        - main
+        - 'feat/ci-cd-settings'
   workflow_dispatch: # 수동 실행
   schedule:
     - cron: '0 2 * * 1' # 매주 월요일 오전 2시 (선택사항)
@@ -57,9 +61,7 @@ jobs:
             --exclude="node_modules/" \
             --verbose
         continue-on-error: true # 취약점을 찾아도 빌드를 중단하지 않음
-        env:
-          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}  # Semgrep Cloud 연동 시 (선택)
-
+    
       - name: Upload SARIF to GitHub Security Tab
         uses: github/codeql-action/upload-sarif@v3
         with:

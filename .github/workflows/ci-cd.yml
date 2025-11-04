@@ -224,7 +224,7 @@ jobs:
             docker-compose up -d --remove-orphans
 
             echo "🧹 Cleaning up old images..."
-            docker image prune -f
+            docker image prune -a -f
 
             echo "⏳ Waiting for services to start..."
             sleep 15
