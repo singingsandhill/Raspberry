@@ -167,11 +167,14 @@ jobs:
           script: |
             set -e  # 에러 발생 시 즉시 중단
 
+            echo "🔧 Changing file ownership..."
+            sudo chown -R $USER:$USER .
+
             echo "📂 Navigating to project directory..."
             cd /home/ubuntu/Raspberry
 
             echo "🔄 Pulling latest code..."
-            git pull origin main
+            git pull origin ${{ github.ref_name }}
             
             # === 💡 스왑 메모리 설정 시작 ===
             # EC2 Micro 인스턴스의 메모리 부족(OOM) 방지를 위해 2GB 스왑 파일 생성
