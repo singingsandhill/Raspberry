@@ -1,4 +1,4 @@
-FROM openjdk:17-slim
+FROM sapmachine:17-jdk-alpine
 
 WORKDIR /app
 
