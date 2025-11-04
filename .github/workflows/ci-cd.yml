@@ -211,6 +211,9 @@ jobs:
             echo "🐳 Logging in to Docker Hub..."
             echo "${{ secrets.DOCKERHUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
+            echo "🔧 Granting Docker socket permissions..."
+            sudo chmod 666 /var/run/docker.sock
+
             echo "📥 Pulling latest Docker images..."
             docker-compose pull
 
