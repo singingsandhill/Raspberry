@@ -1,7 +1,7 @@
 apiVersion: 1
 providers:
-  - name: 'default'
+  - name: 'DS_PROMETHEUS'
     type: file
     updateIntervalSeconds: 10
     options:
-      path: /etc/grafana/provisioning/dashboards
+      path: /etc/grafana/provisioning/dashboards/spring-core.json
