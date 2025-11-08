@@ -205,7 +205,7 @@ groups:
               datasource: { type: grafana, uid: "-100" }
               expression: "$B > 0.5"
         for: 1m
-        labels: { severity: "critical", application: "frontend" }
+        labels: { severity: "critical", application: "user" }
         annotations: { summary: "user down or not being scraped" }
         noDataState: OK
         execErrState: Alerting
