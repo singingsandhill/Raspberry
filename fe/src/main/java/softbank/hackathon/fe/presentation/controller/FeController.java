@@ -2,6 +2,8 @@ package softbank.hackathon.fe.presentation.controller;
 
 import org.springframework.stereotype.Controller;
 
+import org.springframework.web.bind.annotation.GetMapping;
+
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -13,5 +15,5 @@ public class FeController {
         log.info("루트 페이지 요청 받음");
         return "index"; // templates/index.html을 반환
     }
-    
+
 }
