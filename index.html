@@ -12,7 +12,7 @@
       *{box-sizing:border-box}
       html,body{height:100%;margin:0;padding:0}
       body{display:grid;place-items:center;background:radial-gradient(800px 500px at 10% 0%, #121a2f, #0b1220);color:var(--fg);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans KR",sans-serif;padding:20px}
-      .card{width:min(520px,100%);background:rgba(255,255,255,.04);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.08);border-radius:18px;box-shadow:0 12px 30px rgba(0,0,0,.35);padding:22px}
+      .card{width:min(90vw, 1200px);background:rgba(255,255,255,.04);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.08);border-radius:18px;box-shadow:0 12px 30px rgba(0,0,0,.35);padding:22px}
       h1{margin:0 0 8px;font-size:18px}
       p{margin:0 0 12px;color:var(--muted);font-size:14px}
       .input-group{margin-bottom:14px}
@@ -36,6 +36,28 @@
       .iframe-container iframe{width:100%;height:400px;border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(255,255,255,.02)}
       .link{color:var(--accent);text-decoration:none;font-weight:600}
       .link:hover{text-decoration:underline}
+      .workflow-monitor{margin-top:20px;padding:20px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px}
+      .monitor-controls{display:flex;align-items:center;margin-bottom:15px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.08)}
+      .workflow-runs{display:grid;gap:12px}
+      .workflow-run{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:12px}
+      .workflow-run h4{margin:0 0 8px;font-size:14px;display:flex;align-items:center;gap:8px}
+      .workflow-status{padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;text-transform:uppercase}
+      .status-queued{background:rgba(156,163,175,.2);color:#9ca3af}
+      .status-in_progress{background:rgba(251,191,36,.2);color:#fbbf24}
+      .status-completed{background:rgba(16,185,129,.2);color:#10b981}
+      .status-failure{background:rgba(239,68,68,.2);color:#ef4444}
+      .jobs-grid{display:grid;gap:8px;margin-top:10px}
+      .job-item{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:8px;cursor:pointer;transition:background .2s}
+      .job-item:hover{background:rgba(255,255,255,.08)}
+      .job-item-header{display:flex;justify-content:between;align-items:center;font-size:12px}
+      .job-name{font-weight:600}
+      .job-duration{color:var(--muted);font-size:11px}
+      .log-modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.8);display:none;z-index:1000;padding:20px}
+      .log-content{width:100%;height:100%;background:var(--bg);border:1px solid rgba(255,255,255,.12);border-radius:12px;display:flex;flex-direction:column}
+      .log-header{padding:15px 20px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:between;align-items:center}
+      .log-body{flex:1;padding:15px 20px;overflow-y:auto;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.5;white-space:pre-wrap}
+      .close-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px}
+      .close-btn:hover{color:var(--fg)}
     </style>
   </head>
   <body>
@@ -73,9 +95,31 @@
         • Fine-grained token 사용을 권장합니다
       </div>
       
+      <div id="workflowMonitor" class="workflow-monitor" style="display: none;">
+        <h3>📊 워크플로우 모니터링</h3>
+        <div class="monitor-controls">
+          <button id="refreshBtn" class="btn btn-secondary" style="padding: 8px 12px; font-size: 12px;">🔄 새로고침</button>
+          <label style="margin-left: 10px; font-size: 12px;">
+            <input type="checkbox" id="autoRefresh" /> 자동 새로고침 (10초)
+          </label>
+        </div>
+        <div id="workflowRuns" class="workflow-runs"></div>
+      </div>
+
       <div class="iframe-container">
         <h3>🌐 Eureka Service Registry</h3>
         <iframe src="http://3.34.94.55:8761/" title="Eureka Server Dashboard" frameborder="0"></iframe>
+      </div>
+    </div>
+
+    <!-- 로그 모달 -->
+    <div id="logModal" class="log-modal">
+      <div class="log-content">
+        <div class="log-header">
+          <h3 id="logTitle">Job 로그</h3>
+          <button id="closeModal" class="close-btn">✕</button>
+        </div>
+        <div id="logBody" class="log-body">로그를 불러오는 중...</div>
       </div>
     </div>
 
@@ -84,7 +128,7 @@
       const CONFIG = {
         owner: 'SoftBankHackathon2025',             // GitHub 사용자명
         repo: 'Raspberry',        // 레포지토리명
-        workflow_id: 'ci-cd.yml',            // 워크플로우 파일명
+        workflows: ['ci-cd.yml', 'code-scanning-improved.yml'],  // 실행할 워크플로우들
         ref: 'feat/LandingPage'                           // 브랜치명
       };
       // ========================================
@@ -96,6 +140,18 @@
       const tokenInput = $('#tokenInput');
       // const envInput = $('#envInput');
       const tokenSaved = $('#tokenSaved');
+      const workflowMonitor = $('#workflowMonitor');
+      const workflowRuns = $('#workflowRuns');
+      const refreshBtn = $('#refreshBtn');
+      const autoRefresh = $('#autoRefresh');
+      const logModal = $('#logModal');
+      const logTitle = $('#logTitle');
+      const logBody = $('#logBody');
+      const closeModal = $('#closeModal');
+      
+      let pollingInterval = null;
+      let currentRuns = [];
+      let triggerTime = null; // 워크플로우 트리거 시점 저장
 
       function setStatus(text, cls){
         statusEl.className = 'status' + (cls ? ' ' + cls : '');
@@ -135,51 +191,393 @@
         }
 
         deployBtn.disabled = true;
-        setStatus('요청 전송 중…');
-
-        const {owner, repo, workflow_id, ref} = CONFIG;
-        const url = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${workflow_id}/dispatches`;
+        setStatus('워크플로우 실행 중…');
         
-        try {
-          const res = await fetch(url, {
-            method: 'POST',
-            headers: {
-              'Accept': 'application/vnd.github+json',
-              'Authorization': `Bearer ${token}`,
-              'X-GitHub-Api-Version': '2022-11-28',
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ 
-              ref,
-              inputs: { env: 'dev' }
-            })
-          });
+        // 트리거 시점 저장 (현재 시간)
+        triggerTime = new Date();
 
-          if(res.status === 204){
-            setStatus(`✅ 트리거 성공! 워크플로우가 실행 중입니다. (환경: dev)`, 'ok');
-            setTimeout(() => {
-              const actionsUrl = `https://github.com/${owner}/${repo}/actions`;
-              setStatus(`GitHub Actions 탭에서 확인: ${actionsUrl}`, 'ok');
-            }, 2000);
-          } else {
-            const text = await res.text();
-            let errorMsg = `HTTP ${res.status}`;
-            try {
-              const json = JSON.parse(text);
-              errorMsg += ` — ${json.message || text}`;
-            } catch {
-              errorMsg += ` — ${text || '응답 본문 없음'}`;
+        const {owner, repo, workflows, ref} = CONFIG;
+        let successCount = 0;
+        let failCount = 0;
+        const results = [];
+
+        // 모든 워크플로우를 동시에 실행
+        setStatus(`모든 워크플로우 동시 실행 중... (${workflows.length}개)`);
+
+        // 각 워크플로우에 대한 Promise 생성
+        const workflowPromises = workflows.map(async (workflow_id) => {
+          const workflowName = workflow_id.replace('.yml', '');
+          const url = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${workflow_id}/dispatches`;
+          
+          try {
+            const res = await fetch(url, {
+              method: 'POST',
+              headers: {
+                'Accept': 'application/vnd.github+json',
+                'Authorization': `Bearer ${token}`,
+                'X-GitHub-Api-Version': '2022-11-28',
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ 
+                ref,
+                inputs: { env: 'dev' }
+              })
+            });
+
+            if(res.status === 204){
+              return { success: true, name: workflowName, message: `✅ ${workflowName}: 성공` };
+            } else {
+              const text = await res.text();
+              let errorMsg = `HTTP ${res.status}`;
+              try {
+                const json = JSON.parse(text);
+                errorMsg += ` — ${json.message || text}`;
+              } catch {
+                errorMsg += ` — ${text || '응답 본문 없음'}`;
+              }
+              return { success: false, name: workflowName, message: `❌ ${workflowName}: ${errorMsg}` };
             }
-            setStatus(`❌ 실패: ${errorMsg}`, 'err');
+          } catch (e){
+            return { success: false, name: workflowName, message: `❌ ${workflowName}: 네트워크 오류 - ${e?.message || e}` };
           }
-        } catch (e){
-          setStatus('❌ 네트워크 오류: ' + (e?.message || e), 'err');
-        } finally {
-          deployBtn.disabled = false;
+        });
+
+        // 모든 워크플로우 실행 완료 대기
+        const workflowResults = await Promise.allSettled(workflowPromises);
+        
+        // 결과 처리
+        workflowResults.forEach((result, index) => {
+          if (result.status === 'fulfilled') {
+            const { success, message } = result.value;
+            if (success) {
+              successCount++;
+            } else {
+              failCount++;
+            }
+            results.push(message);
+          } else {
+            // Promise 자체가 거부된 경우
+            const workflowName = workflows[index].replace('.yml', '');
+            failCount++;
+            results.push(`❌ ${workflowName}: Promise 실행 실패 - ${result.reason}`);
+          }
+        });
+
+        // 최종 결과 표시
+        const totalWorkflows = workflows.length;
+        if (failCount === 0) {
+          setStatus(`✅ 모든 워크플로우 성공! (${successCount}/${totalWorkflows})`, 'ok');
+        } else if (successCount > 0) {
+          setStatus(`⚠️ 일부 성공: ${successCount}/${totalWorkflows} (${failCount}개 실패)`, 'warn');
+        } else {
+          setStatus(`❌ 모든 워크플로우 실패 (${failCount}/${totalWorkflows})`, 'err');
+        }
+
+        // 2초 후 상세 결과와 링크 표시
+        setTimeout(() => {
+          const actionsUrl = `https://github.com/${owner}/${repo}/actions`;
+          const detailMsg = results.join(' | ') + `\nGitHub Actions: ${actionsUrl}`;
+          setStatus(detailMsg, failCount === 0 ? 'ok' : (successCount > 0 ? 'warn' : 'err'));
+        }, 2000);
+
+        deployBtn.disabled = false;
+        
+        // 5초 후 모니터링 시작 (GitHub API 반영 시간 확보)
+        setTimeout(() => {
+          startWorkflowMonitoring();
+        }, 5000);
+      }
+
+      // 워크플로우 모니터링 시작
+      function startWorkflowMonitoring() {
+        workflowMonitor.style.display = 'block';
+        fetchWorkflowRuns();
+        
+        if (autoRefresh.checked) {
+          clearInterval(pollingInterval);
+          pollingInterval = setInterval(fetchWorkflowRuns, 10000);
         }
       }
 
+      // 워크플로우 실행 목록 가져오기
+      async function fetchWorkflowRuns() {
+        const token = tokenInput.value.trim();
+        if (!token) return;
+
+        const { owner, repo, workflows } = CONFIG;
+        
+        try {
+          const allRuns = [];
+          
+          // 각 워크플로우의 최근 실행들 가져오기
+          for (const workflow of workflows) {
+            const url = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${workflow}/runs?per_page=5`;
+            const res = await fetch(url, {
+              headers: {
+                'Accept': 'application/vnd.github+json',
+                'Authorization': `Bearer ${token}`,
+                'X-GitHub-Api-Version': '2022-11-28'
+              }
+            });
+            
+            if (res.ok) {
+              const data = await res.json();
+              // 트리거 시점 이후에 생성된 워크플로우만 필터링
+              let filteredRuns = data.workflow_runs;
+              if (triggerTime) {
+                filteredRuns = data.workflow_runs.filter(run => {
+                  const runCreatedAt = new Date(run.created_at);
+                  const timeDiff = runCreatedAt - triggerTime;
+                  // 조건: 트리거 시점 이후 생성 + 현재 브랜치와 일치
+                  const isAfterTrigger = timeDiff >= -30000 && timeDiff <= 300000; // -30초 ~ +5분
+                  const isSameBranch = run.head_branch === CONFIG.ref || run.head_branch === CONFIG.ref.replace('refs/heads/', '');
+                  return isAfterTrigger && isSameBranch;
+                });
+              }
+              allRuns.push(...filteredRuns.map(run => ({ ...run, workflow_name: workflow })));
+            }
+          }
+          
+          // 최신순으로 정렬
+          allRuns.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+          currentRuns = allRuns.slice(0, 10); // 최근 10개만
+          
+          displayWorkflowRuns();
+        } catch (error) {
+          console.error('워크플로우 실행 목록 가져오기 실패:', error);
+        }
+      }
+
+      // 워크플로우 실행 목록 표시
+      function displayWorkflowRuns() {
+        workflowRuns.innerHTML = '';
+        
+        if (currentRuns.length === 0) {
+          let message = '실행 중인 워크플로우가 없습니다.';
+          if (triggerTime) {
+            const triggerTimeStr = triggerTime.toLocaleTimeString('ko-KR');
+            message = `${triggerTimeStr} 이후 실행된 워크플로우가 없습니다.`;
+          }
+          workflowRuns.innerHTML = `<div style="text-align:center;color:var(--muted);padding:20px;">${message}</div>`;
+          return;
+        }
+        
+        currentRuns.forEach(run => {
+          const runEl = createWorkflowRunElement(run);
+          workflowRuns.appendChild(runEl);
+        });
+      }
+
+      // 워크플로우 실행 요소 생성
+      function createWorkflowRunElement(run) {
+        const div = document.createElement('div');
+        div.className = 'workflow-run';
+        
+        const statusClass = `status-${run.status}${run.conclusion ? '_' + run.conclusion : ''}`;
+        const statusText = run.status === 'completed' ? run.conclusion : run.status;
+        const duration = run.updated_at ? formatDuration(new Date(run.created_at), new Date(run.updated_at)) : '진행 중';
+        
+        div.innerHTML = `
+          <h4>
+            ${getWorkflowIcon(run.workflow_name)} ${run.workflow_name.replace('.yml', '')}
+            <span class="workflow-status ${statusClass}">${statusText}</span>
+          </h4>
+          <div style="font-size: 12px; color: var(--muted); margin-bottom: 10px;">
+            #${run.run_number} • ${formatDate(run.created_at)} • ${duration}
+          </div>
+          <div class="jobs-grid" id="jobs-${run.id}">
+            <div style="text-align: center; padding: 10px; color: var(--muted);">Job 정보를 불러오는 중...</div>
+          </div>
+        `;
+        
+        // Job 정보 비동기 로드
+        fetchJobsForRun(run.id);
+        
+        return div;
+      }
+
+      // 특정 워크플로우 실행의 Job 목록 가져오기
+      async function fetchJobsForRun(runId) {
+        const token = tokenInput.value.trim();
+        if (!token) return;
+
+        const { owner, repo } = CONFIG;
+        const url = `https://api.github.com/repos/${owner}/${repo}/actions/runs/${runId}/jobs`;
+        
+        try {
+          const res = await fetch(url, {
+            headers: {
+              'Accept': 'application/vnd.github+json',
+              'Authorization': `Bearer ${token}`,
+              'X-GitHub-Api-Version': '2022-11-28'
+            }
+          });
+          
+          if (res.ok) {
+            const data = await res.json();
+            displayJobs(runId, data.jobs);
+          }
+        } catch (error) {
+          console.error('Job 목록 가져오기 실패:', error);
+          const jobsContainer = document.getElementById(`jobs-${runId}`);
+          if (jobsContainer) {
+            jobsContainer.innerHTML = '<div style="color: var(--err);">Job 정보 로드 실패</div>';
+          }
+        }
+      }
+
+      // Job 목록 표시
+      function displayJobs(runId, jobs) {
+        const jobsContainer = document.getElementById(`jobs-${runId}`);
+        if (!jobsContainer) return;
+        
+        jobsContainer.innerHTML = '';
+        
+        jobs.forEach(job => {
+          const jobEl = document.createElement('div');
+          jobEl.className = 'job-item';
+          
+          const statusClass = `status-${job.status}${job.conclusion ? '_' + job.conclusion : ''}`;
+          const statusText = job.status === 'completed' ? job.conclusion : job.status;
+          const duration = job.completed_at ? formatDuration(new Date(job.started_at), new Date(job.completed_at)) : '진행 중';
+          
+          jobEl.innerHTML = `
+            <div class="job-item-header">
+              <span class="job-name">${job.name}</span>
+              <span class="workflow-status ${statusClass}">${statusText}</span>
+            </div>
+            <div class="job-duration">${duration}</div>
+          `;
+          
+          // 클릭 시 로그 모달 열기
+          jobEl.addEventListener('click', () => openLogModal(job));
+          
+          jobsContainer.appendChild(jobEl);
+        });
+      }
+
+      // 로그 모달 열기
+      async function openLogModal(job) {
+        logTitle.textContent = `${job.name} 로그`;
+        logBody.textContent = '로그를 불러오는 중...';
+        logModal.style.display = 'block';
+        
+        const token = tokenInput.value.trim();
+        if (!token) {
+          logBody.textContent = '❌ GitHub Token이 필요합니다.';
+          return;
+        }
+
+        try {
+          const { owner, repo } = CONFIG;
+          const url = `https://api.github.com/repos/${owner}/${repo}/actions/jobs/${job.id}/logs`;
+          
+          const res = await fetch(url, {
+            headers: {
+              'Accept': 'application/vnd.github+json',
+              'Authorization': `Bearer ${token}`,
+              'X-GitHub-Api-Version': '2022-11-28'
+            }
+          });
+          
+          if (res.ok) {
+            const logText = await res.text();
+            // ANSI 색상 코드 제거 및 기본 포맷팅
+            const cleanLog = logText
+              .replace(/\x1B\[[0-9;]*[JKmsu]/g, '') // ANSI escape codes 제거
+              .replace(/##\[group\].*?\n/g, '') // GitHub Actions group markers 제거
+              .replace(/##\[endgroup\]\n/g, '')
+              .replace(/##\[section\].*?\n/g, '')
+              .replace(/##\[endsection\]\n/g, '');
+            
+            logBody.textContent = cleanLog || '로그가 비어있습니다.';
+          } else if (res.status === 302) {
+            // 로그 다운로드 리다이렉트 처리
+            const location = res.headers.get('Location');
+            if (location) {
+              const logRes = await fetch(location);
+              if (logRes.ok) {
+                const logText = await logRes.text();
+                const cleanLog = logText
+                  .replace(/\x1B\[[0-9;]*[JKmsu]/g, '')
+                  .replace(/##\[group\].*?\n/g, '')
+                  .replace(/##\[endgroup\]\n/g, '');
+                logBody.textContent = cleanLog || '로그가 비어있습니다.';
+              } else {
+                throw new Error('로그 다운로드 실패');
+              }
+            } else {
+              throw new Error('로그 리다이렉트 URL을 찾을 수 없습니다');
+            }
+          } else {
+            const errorText = await res.text();
+            throw new Error(`HTTP ${res.status}: ${errorText}`);
+          }
+        } catch (error) {
+          console.error('로그 가져오기 실패:', error);
+          logBody.textContent = `❌ 로그 로드 실패: ${error.message}`;
+        }
+      }
+
+      // 유틸리티 함수들
+      function getWorkflowIcon(workflowName) {
+        if (workflowName.includes('ci-cd')) return '🚀';
+        if (workflowName.includes('scan')) return '🔍';
+        return '⚙️';
+      }
+
+      function formatDate(dateString) {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diff = now - date;
+        const minutes = Math.floor(diff / 60000);
+        
+        if (minutes < 1) return '방금 전';
+        if (minutes < 60) return `${minutes}분 전`;
+        if (minutes < 1440) return `${Math.floor(minutes / 60)}시간 전`;
+        return date.toLocaleDateString('ko-KR');
+      }
+
+      function formatDuration(start, end) {
+        const diff = end - start;
+        const seconds = Math.floor(diff / 1000);
+        const minutes = Math.floor(seconds / 60);
+        
+        if (minutes > 0) {
+          return `${minutes}분 ${seconds % 60}초`;
+        }
+        return `${seconds}초`;
+      }
+
+      // 이벤트 리스너들
       deployBtn.addEventListener('click', triggerDispatch);
+      
+      refreshBtn.addEventListener('click', function() {
+        // Shift 클릭 시 필터 초기화 (모든 워크플로우 표시)
+        if (event.shiftKey) {
+          triggerTime = null;
+          setStatus('필터가 초기화되었습니다. 모든 워크플로우를 표시합니다.', 'ok');
+        }
+        fetchWorkflowRuns();
+      });
+      
+      autoRefresh.addEventListener('change', function() {
+        if (this.checked) {
+          pollingInterval = setInterval(fetchWorkflowRuns, 10000);
+        } else {
+          clearInterval(pollingInterval);
+        }
+      });
+      
+      closeModal.addEventListener('click', function() {
+        logModal.style.display = 'none';
+      });
+      
+      logModal.addEventListener('click', function(e) {
+        if (e.target === logModal) {
+          logModal.style.display = 'none';
+        }
+      });
       
       // 엔터키로 배포
       // tokenInput.addEventListener('keypress', (e) => {
