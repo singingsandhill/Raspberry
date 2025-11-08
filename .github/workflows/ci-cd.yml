@@ -228,7 +228,7 @@ jobs:
           ESCAPED_SCRIPT=$(echo "$COMMAND_SCRIPT" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | awk '{printf "%s\\n", $0}')
           
           # 💡 SSM 명령 JSON 파일 생성 (commands는 string array여야 함)
-          echo '{"commands": ["'"$ESCAPED_SCRIPT"'"]}' > ssm_command_params.json
+          echo '{"Parameters": {"commands": ["'"$ESCAPED_SCRIPT"'"]}}' > ssm_command_params.json
           
           # 💡 AWS CLI 호출 시 JSON 파일 직접 사용
           aws ssm send-command \
@@ -273,7 +273,7 @@ jobs:
           ESCAPED_SCRIPT=$(echo "$VERIFY_SCRIPT" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | awk '{printf "%s\\n", $0}')
           
           # 💡 SSM 명령 JSON 파일 생성 (commands는 string array여야 함)
-          echo '{"commands": ["'"$ESCAPED_SCRIPT"'"]}' > ssm_verify_params.json
+          echo '{"Parameters": {"commands": ["'"$ESCAPED_VERIFY_SCRIPT"'"]}}' > ssm_verify_params.json
           
           # 💡 AWS CLI 호출 시 JSON 파일 직접 사용
           aws ssm send-command \
