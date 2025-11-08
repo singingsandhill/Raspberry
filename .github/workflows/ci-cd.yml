@@ -153,7 +153,8 @@ jobs:
           sudo chown -R $USER:$USER .
           
           echo "🔄 Pulling latest code..."
-          git pull origin ${{ github.ref_name }}
+          git fetch origin 
+          git reset --hard origin/${{ github.ref_name }}
           
           # === 💡 스왑 메모리 설정 === (이하 원본 스크립트 내용 유지)
           if [ -f /swapfile ]; then
