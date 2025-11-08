@@ -1,24 +1,20 @@
 name: CI/CD Pipeline for Microservices
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
   workflow_dispatch:
 
 permissions:
-    contents: read
-    security-events: write
+  contents: read
+  security-events: write
 
 env:
-  DOCKER_REGISTRY: softbank2025  # DockerHub username
+  DOCKER_REGISTRY: kwa06001
   IMAGE_TAG: ${{ github.sha }}
 
 jobs:
-  # Job 1: 빌드 단계를 제거하고, 테스트만 수행
   test:
     name: Run Unit Tests
     runs-on: ubuntu-latest
@@ -36,16 +32,12 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
-      # 'build' 단계를 제거하고 'test'만 실행
       - name: Run Tests
         run: ./gradlew test
-        
-      # '.jar'를 업로드하는 아티팩트 단계 제거
 
-  # Job 2: Docker가 소스 코드를 직접 빌드하도록 수정
   docker-build-scan-push:
     name: Docker Build, Scan & Push
-    needs: test # Job 1의 이름이 'test'로 변경되었으므로 'needs'도 수정
+    needs: test
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -56,8 +48,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # '.jar'를 다운로드하는 아티팩트 단계 제거
-
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -67,7 +57,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # [!!] Docker 빌드 컨텍스트를 '.' (루트)로 수정 [!!]
       - name: Build Docker Image for ${{ matrix.service }}
         run: |
           IMAGE_NAME="${{ env.DOCKER_REGISTRY }}/${{ matrix.service }}"
@@ -75,9 +64,8 @@ jobs:
             -t $IMAGE_NAME:${{ env.IMAGE_TAG }} \
             -t $IMAGE_NAME:latest \
             -f ./${{ matrix.service }}/Dockerfile \
-            .  # <-- 빌드 컨텍스트를 프로젝트 루트로 변경
+            .
 
-      # Trivy 스캔 (이하 동일)
       - name: Run Trivy Security Scan
         uses: aquasecurity/trivy-action@master
         with:
@@ -109,7 +97,6 @@ jobs:
           docker push $IMAGE_NAME:latest
           echo "✅ Pushed: $IMAGE_NAME:${{ env.IMAGE_TAG }} and latest"
 
-  # Job 3: EC2 배포 (AWS 자격증명 및 SSM 방식으로 수정됨)
   deploy-to-ec2:
     name: Deploy to EC2
     needs: docker-build-scan-push
@@ -119,28 +106,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # [!!] sed 명령어를 'build:'를 'image:'로 바꾸도록 수정 [!!]
       - name: Update docker-compose.yml to use images
         run: |
-          # docker-compose.yml의 'build:' 관련 라인을 'image:'로 교체
-          sed -i "s|build:\s*context: \.|image: softbank2025/server:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-          sed -i "/image: softbank2025\/server/! s|build:\s*./server|image: softbank2025/server:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "s|build:\s*context: \.|image: kwa06001/server:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "/image: kwa06001\/server/! s|build:\s*./server|image: kwa06001/server:${{ env.IMAGE_TAG }}|g" docker-compose.yml
           sed -i "/dockerfile: \.\/server\/Dockerfile/d" docker-compose.yml
           
-          sed -i "s|build:\s*context: \.|image: softbank2025/gateway:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-          sed -i "/image: softbank2025\/gateway/! s|build:\s*./gateway|image: softbank2025/gateway:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "s|build:\s*context: \.|image: kwa06001/gateway:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "/image: kwa06001\/gateway/! s|build:\s*./gateway|image: kwa06001/gateway:${{ env.IMAGE_TAG }}|g" docker-compose.yml
           sed -i "/dockerfile: \.\/gateway\/Dockerfile/d" docker-compose.yml
 
-          sed -i "s|build:\s*context: \.|image: softbank2025/fe:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-          sed -i "/image: softbank2025\/fe/! s|build:\s*./fe|image: softbank2025/fe:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "s|build:\s*context: \.|image: kwa06001/fe:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "/image: kwa06001\/fe/! s|build:\s*./fe|image: kwa06001/fe:${{ env.IMAGE_TAG }}|g" docker-compose.yml
           sed -i "/dockerfile: \.\/fe\/Dockerfile/d" docker-compose.yml
           
-          sed -i "s|build:\s*context: \.|image: softbank2025/deploy:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-          sed -i "/image: softbank2025\/deploy/! s|build:\s*./deploy|image: softbank2025/deploy:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "s|build:\s*context: \.|image: kwa06001/deploy:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "/image: kwa06001\/deploy/! s|build:\s*./deploy|image: kwa06001/deploy:${{ env.IMAGE_TAG }}|g" docker-compose.yml
           sed -i "/dockerfile: \.\/deploy\/Dockerfile/d" docker-compose.yml
           
-          sed -i "s|build:\s*context: \.|image: softbank2025/user:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-          sed -i "/image: softbank2025\/user/! s|build:\s*./user|image: softbank2025/user:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "s|build:\s*context: \.|image: kwa06001/user:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "/image: kwa06001\/user/! s|build:\s*./user|image: kwa06001/user:${{ env.IMAGE_TAG }}|g" docker-compose.yml
           sed -i "/dockerfile: \.\/user\/Dockerfile/d" docker-compose.yml
           
           echo "📝 Updated docker-compose.yml (to use images instead of build):"
@@ -156,127 +141,148 @@ jobs:
 
       # AWS SSM Run Command로 배포
       - name: Deploy to EC2 via AWS SSM
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          instance-ids: ${{ secrets.EC2_INSTANCE_ID }} # Secret: EC2 인스턴스 ID
-          command: |
-            #!/bin/bash
-            set -e
+        run: |
+          COMMAND_SCRIPT='''
+          #!/bin/bash
+          set -e
+          
+          echo "📂 Navigating to project directory..."
+          cd /home/ubuntu/Raspberry # EC2 내 프로젝트 경로
+          
+          echo "🔧 Changing file ownership..."
+          sudo chown -R $USER:$USER .
+          
+          echo "🔄 Pulling latest code..."
+          git fetch origin 
+          git reset --hard origin/${{ github.ref_name }}
+          
+          # === 💡 스왑 메모리 설정 === (이하 원본 스크립트 내용 유지)
+          if [ -f /swapfile ]; then
+            echo "ℹ Swap file /swapfile already exists."
+          else
+            echo "🚀 Creating 2G swap file..."
+            sudo fallocate -l 2G /swapfile
+            sudo chmod 600 /swapfile
+            sudo mkswap /swapfile
+          fi
+          if ! sudo swapon --show | grep -q "/swapfile"; then
+            echo "🟢 Activating swap..."
+            sudo swapon /swapfile
+          fi
+          if ! grep -q "/swapfile" /etc/fstab; then
+            echo "✏ Adding swap to /etc/fstab..."
+            echo "/swapfile none swap sw 0 0" | sudo tee -a /etc/fstab
+          fi
+          echo "📊 Current swap status:"
+          sudo swapon --show
+          free -h
+          # === 스왑 메모리 설정 끝 ===
+          
+          echo "🐳 Logging in to Docker Hub..."
+          echo "${{ secrets.DOCKERHUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+          
+          echo "🔧 Granting Docker socket permissions..."
+          sudo chmod 666 /var/run/docker.sock
+          
+          # [!!] EC2에서 직접 sed 실행 [!!]
+          echo "🔧 Updating docker-compose.yml on EC2 to use images..."
+          sed -i "s|build:\s*context: \.|image: kwa06001/server:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "/image: kwa06001\/server/! s|build:\s*./server|image: kwa06001/server:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "/dockerfile: \.\/server\/Dockerfile/d" docker-compose.yml
+          
+          sed -i "s|build:\s*context: \.|image: kwa06001/gateway:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "/image: kwa06001\/gateway/! s|build:\s*./gateway|image: kwa06001/gateway:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "/dockerfile: \.\/gateway\/Dockerfile/d" docker-compose.yml
 
-            echo "📂 Navigating to project directory..."
-            cd /home/ubuntu/Raspberry # EC2 내 프로젝트 경로
-
-            echo "🔧 Changing file ownership..."
-            sudo chown -R $USER:$USER .
-
-            echo "🔄 Pulling latest code..."
-            git pull origin ${{ github.ref_name }}
-            
-            # === 💡 스왑 메모리 설정 ===
-            if [ -f /swapfile ]; then
-              echo "ℹ️ Swap file /swapfile already exists."
-            else
-              echo "🚀 Creating 2G swap file..."
-              sudo fallocate -l 2G /swapfile
-              sudo chmod 600 /swapfile
-              sudo mkswap /swapfile
-            fi
-            if ! sudo swapon --show | grep -q '/swapfile'; then
-              echo "🟢 Activating swap..."
-              sudo swapon /swapfile
-            fi
-            if ! grep -q '/swapfile' /etc/fstab; then
-              echo "✏️ Adding swap to /etc/fstab..."
-              echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-            fi
-            echo "📊 Current swap status:"
-            sudo swapon --show
-            free -h
-            # === 스왑 메모리 설정 끝 ===
-
-            echo "🐳 Logging in to Docker Hub..."
-            echo "${{ secrets.DOCKERHUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-
-            echo "🔧 Granting Docker socket permissions..."
-            sudo chmod 666 /var/run/docker.sock
-
-            echo "📥 Pulling latest Docker images..."
-            # EC2 서버의 git pull로 docker-compose.yml이 덮어써지기 전에 
-            # CI Runner에서 수정한 docker-compose.yml을 EC2로 복사해야 합니다.
-            # 이 방식 대신, EC2에서 직접 sed를 실행하는 것이 더 낫습니다.
-            # 스크립트를 수정합니다.
-
-            # [!!] EC2에서 직접 sed 실행 [!!]
-            echo "🔧 Updating docker-compose.yml on EC2 to use images..."
-            sed -i "s|build:\s*context: \.|image: softbank2025/server:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-            sed -i "/image: softbank2025\/server/! s|build:\s*./server|image: softbank2025/server:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-            sed -i "/dockerfile: \.\/server\/Dockerfile/d" docker-compose.yml
-            
-            sed -i "s|build:\s*context: \.|image: softbank2025/gateway:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-            sed -i "/image: softbank2025\/gateway/! s|build:\s*./gateway|image: softbank2025/gateway:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-            sed -i "/dockerfile: \.\/gateway\/Dockerfile/d" docker-compose.yml
-
-            sed -i "s|build:\s*context: \.|image: softbank2025/fe:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-            sed -i "/image: softbank2025\/fe/! s|build:\s*./fe|image: softbank2025/fe:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-            sed -i "/dockerfile: \.\/fe\/Dockerfile/d" docker-compose.yml
-            
-            sed -i "s|build:\s*context: \.|image: softbank2025/deploy:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-            sed -i "/image: softbank2025\/deploy/! s|build:\s*./deploy|image: softbank2025/deploy:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-            sed -i "/dockerfile: \.\/deploy\/Dockerfile/d" docker-compose.yml
-            
-            sed -i "s|build:\s*context: \.|image: softbank2025/user:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-            sed -i "/image: softbank2025\/user/! s|build:\s*./user|image: softbank2025/user:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-            sed -i "/dockerfile: \.\/user\/Dockerfile/d" docker-compose.yml
-
-            echo "📥 Pulling latest Docker images from Docker Hub..."
-            docker-compose pull
-
-            echo "🛑 Stopping and removing corrupted containers..."
-            docker-compose down
-
-            echo "🚀 Starting services with new images..."
-            docker-compose up -d --remove-orphans
-
-            echo "🧹 Cleaning up old images..."
-            docker image prune -a -f
-
-            echo "⏳ Waiting for services to start..."
-            sleep 15
-
-            echo "✅ Deployment completed!"
-            docker-compose ps
+          sed -i "s|build:\s*context: \.|image: kwa06001/fe:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "/image: kwa06001\/fe/! s|build:\s*./fe|image: kwa06001/fe:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "/dockerfile: \.\/fe\/Dockerfile/d" docker-compose.yml
+          
+          sed -i "s|build:\s*context: \.|image: kwa06001/deploy:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "/image: kwa06001\/deploy/! s|build:\s*./deploy|image: kwa06001/deploy:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "/dockerfile: \.\/deploy\/Dockerfile/d" docker-compose.yml
+          
+          sed -i "s|build:\s*context: \.|image: kwa06001/user:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "/image: kwa06001\/user/! s|build:\s*./user|image: kwa06001/user:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "/dockerfile: \.\/user\/Dockerfile/d" docker-compose.yml
+          
+          echo "📥 Pulling latest Docker images from Docker Hub..."
+          docker-compose pull
+          
+          echo "🛑 Stopping and removing corrupted containers..."
+          docker-compose down
+          
+          echo "🚀 Starting services with new images..."
+          docker-compose up -d --remove-orphans
+          
+          echo "🧹 Cleaning up old images..."
+          docker image prune -a -f
+          
+          echo "⏳ Waiting for services to start..."
+          sleep 15
+          
+          echo "✅ Deployment completed!"
+          docker-compose ps
+          ''' # 💡 수정된 부분: COMMAND_SCRIPT와 같은 열에 위치
+          
+          # 💡 COMMAND_SCRIPT의 내용을 JSON 형태로 이스케이프 처리
+          ESCAPED_SCRIPT=$(echo "$COMMAND_SCRIPT" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | awk '{printf "%s\\n", $0}')
+          
+          # 💡 SSM 명령 JSON 파일 생성 (commands는 string array여야 함)
+          echo '{"Parameters": {"commands": ["'"$ESCAPED_SCRIPT"'"]}}' > ssm_command_params.json
+          
+          # 💡 AWS CLI 호출 시 JSON 파일 직접 사용
+          aws ssm send-command \
+            --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --cli-input-json file://ssm_command_params.json \
+            --timeout-seconds 600 \
+            --output text
 
       # AWS SSM으로 배포 검증
       - name: Verify Deployment
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          instance-ids: ${{ secrets.EC2_INSTANCE_ID }}
-          command: |
-            #!/bin/bash
-            set -e
-
-            echo "⏳ Waiting for services to initialize..."
-            sleep 50
-
-            cd /home/ubuntu/Raspberry
-
-            echo "🔍 Checking service health..."
-
-            if curl -sf http://localhost:8761 > /dev/null 2>&1; then
-              echo "✅ Eureka Server is healthy"
-            else
-              echo "❌ Eureka Server health check failed"
-              exit 1
-            fi
-
-            if curl -sf http://localhost:8080/actuator/health > /dev/null 2>&1; then
-              echo "✅ Gateway is healthy"
-            else
-              echo "⚠️ Gateway health check failed"
-            fi
-
-            echo "📊 Service Status:"
-            docker-compose ps
+        run: |
+          VERIFY_SCRIPT='''
+          #!/bin/bash
+          set -e
+          
+          echo "⏳ Waiting for services to initialize..."
+          sleep 50
+          
+          cd /home/ubuntu/Raspberry
+          
+          echo "🔍 Checking service health..."
+          
+          if curl -sf http://localhost:8761 > /dev/null 2>&1; then
+          echo "✅ Eureka Server is healthy"
+          else
+          echo "❌ Eureka Server health check failed"
+          exit 1
+          fi
+          
+          if curl -sf http://localhost:8080/actuator/health > /dev/null 2>&1; then
+          echo "✅ Gateway is healthy"
+          else
+          echo "⚠ Gateway health check failed"
+          fi
+          
+          echo "📊 Service Status:"
+          docker-compose ps
+          '''
+          
+          # 💡 COMMAND_SCRIPT의 내용을 JSON 형태로 이스케이프 처리
+          ESCAPED_SCRIPT=$(echo "$VERIFY_SCRIPT" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | awk '{printf "%s\\n", $0}')
+          
+          # 💡 SSM 명령 JSON 파일 생성 (commands는 string array여야 함)
+          echo '{"Parameters": {"commands": ["'"$ESCAPED_VERIFY_SCRIPT"'"]}}' > ssm_verify_params.json
+          
+          # 💡 AWS CLI 호출 시 JSON 파일 직접 사용
+          aws ssm send-command \
+            --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --cli-input-json file://ssm_verify_params.json \
+            --timeout-seconds 600 \
+            --output text
 
       # Slack 알림 (선택사항)
       - name: Notify Deployment Status
