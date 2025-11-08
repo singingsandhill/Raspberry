@@ -109,16 +109,16 @@ jobs:
       - name: Update docker-compose.yml to use images
         run: |
           # 모든 빌드 관련 라인 삭제 (EC2 스크립트와 일치시킵니다)
-               sed -i '/build:/d' docker-compose.yml
-               sed -i '/context:/d' docker-compose.yml
-               sed -i '/dockerfile:/d' docker-compose.yml
+          sed -i '/build:/d' docker-compose.yml
+          sed -i '/context:/d' docker-compose.yml
+          sed -i '/dockerfile:/d' docker-compose.yml
           
           # image 태그 업데이트
-               sed -i "s|image: kwa06001/eureka-server:.*|image: kwa06001/eureka-server:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-               sed -i "s|image: kwa06001/gateway:.*|image: kwa06001/gateway:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-               sed -i "s|image: kwa06001/fe:.*|image: kwa06001/fe:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-               sed -i "s|image: kwa06001/deploy:.*|image: kwa06001/deploy:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-               sed -i "s|image: kwa06001/user:.*|image: kwa06001/user:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "/eureka-server:/a\    image: kwa06001/eureka-server:${{ env.IMAGE_TAG }}" docker-compose.yml
+          sed -i "/gateway:/a\    image: kwa06001/gateway:${{ env.IMAGE_TAG }}" docker-compose.yml
+          sed -i "/fe:/a\    image: kwa06001/fe:${{ env.IMAGE_TAG }}" docker-compose.yml
+          sed -i "/deploy:/a\    image: kwa06001/deploy:${{ env.IMAGE_TAG }}" docker-compose.yml
+          sed -i "/user:/a\    image: kwa06001/user:${{ env.IMAGE_TAG }}" docker-compose.yml
           
           echo "📝 Updated docker-compose.yml (to use images instead of build):"
           cat docker-compose.yml
@@ -184,11 +184,11 @@ jobs:
           sed -i '/dockerfile:/d' docker-compose.yml
 
           # 💡 image 태그 업데이트 (잔여 image 태그에 대해 적용)
-          sed -i "s|image: kwa06001/eureka-server:.*|image: kwa06001/eureka-server:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-          sed -i "s|image: kwa06001/gateway:.*|image: kwa06001/gateway:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-          sed -i "s|image: kwa06001/fe:.*|image: kwa06001/fe:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-          sed -i "s|image: kwa06001/deploy:.*|image: kwa06001/deploy:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-          sed -i "s|image: kwa06001/user:.*|image: kwa06001/user:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "/eureka-server:/a\    image: kwa06001/eureka-server:${{ env.IMAGE_TAG }}" docker-compose.yml
+          sed -i "/gateway:/a\    image: kwa06001/gateway:${{ env.IMAGE_TAG }}" docker-compose.yml
+          sed -i "/fe:/a\    image: kwa06001/fe:${{ env.IMAGE_TAG }}" docker-compose.yml
+          sed -i "/deploy:/a\    image: kwa06001/deploy:${{ env.IMAGE_TAG }}" docker-compose.yml
+          sed -i "/user:/a\    image: kwa06001/user:${{ env.IMAGE_TAG }}" docker-compose.yml
           
           echo "📥 Pulling latest Docker images from Docker Hub..."
           docker-compose pull
