@@ -159,7 +159,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           instance-ids: ${{ secrets.EC2_INSTANCE_ID }} # Secret: EC2 인스턴스 ID
-          command: |
+          run: |
           # 💡 명령어 전체를 변수에 저장하여 SSM Run Command의 'commands' 인수에 전달합니다.
           COMMAND_SCRIPT='''
           #!/bin/bash
