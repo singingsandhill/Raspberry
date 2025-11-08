@@ -1,6 +1,8 @@
 services:
   eureka-server:
-    build: ./server
+    build:
+      context: .
+      dockerfile: ./server/Dockerfile
     container_name: eureka-server
     ports:
       - "8761:8761"
@@ -14,7 +16,9 @@ services:
       - eureka.server.enable-self-preservation=false
 
   gateway:
-    build: ./gateway
+    build:
+      context: .
+      dockerfile: ./gateway/Dockerfile
     container_name: gateway
     ports:
       - "8080:8080"
@@ -27,7 +31,9 @@ services:
     restart: unless-stopped
 
   frontend:
-    build: ./fe
+    build:
+      context: .
+      dockerfile: ./fe/Dockerfile
     container_name: frontend
     ports:
       - "8081:8081"
@@ -40,7 +46,9 @@ services:
     restart: unless-stopped
 
   deploy:
-    build: ./deploy
+    build:
+      context: .
+      dockerfile: ./deploy/Dockerfile
     container_name: deploy
     ports:
       - "8082:8082"
@@ -53,7 +61,9 @@ services:
     restart: unless-stopped
 
   user:
-    build: ./user
+    build:
+      context: .
+      dockerfile: ./user/Dockerfile
     container_name: user
     ports:
       - "8083:8083"
