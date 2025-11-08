@@ -156,10 +156,7 @@ jobs:
 
       # AWS SSM Run Command로 배포
       - name: Deploy to EC2 via AWS SSM
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          instance-ids: ${{ secrets.EC2_INSTANCE_ID }} # Secret: EC2 인스턴스 ID
-          run: |
+        run: |
           # 💡 명령어 전체를 변수에 저장하여 SSM Run Command의 'commands' 인수에 전달합니다.
           COMMAND_SCRIPT='''
           #!/bin/bash
@@ -253,7 +250,7 @@ jobs:
 
       # AWS SSM으로 배포 검증
       - name: Verify Deployment
-        run: |
+        run: |
           VERIFY_SCRIPT='''
           #!/bin/bash
           set -e
