@@ -154,7 +154,7 @@ jobs:
 
       # [!!] SSH 방식 대신 AWS SSM Run Command로 배포 [!!]
       - name: Deploy to EC2 via AWS SSM
-        uses: aws-actions/aws-ssm-send-command@v1
+        uses: aws-actions/amazon-ssm-send-command@v1
         with:
           instance-ids: ${{ secrets.EC2_INSTANCE_ID }} # GitHub Secret에 EC2 인스턴스 ID(i-...)를 등록해야 합니다.
           command: |
@@ -219,7 +219,7 @@ jobs:
 
       # [!!] SSH 방식 대신 AWS SSM으로 배포 검증 [!!]
       - name: Verify Deployment
-        uses: aws-actions/aws-ssm-send-command@v1
+        uses: /amazon-ssm-send-command@v1
         with:
           instance-ids: ${{ secrets.EC2_INSTANCE_ID }}
           command: |
