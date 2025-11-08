@@ -1,6 +1,8 @@
 spring:
   application:
     name: gateway
+  config:
+    import: "optional:file:../../../.env"
   cloud:
     gateway:
       discovery:
@@ -123,7 +125,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info, gateway, refresh, routes, filters, globalfilters, prometheus, metrics
+        include: ${MANAGEMENT_EXPOSURE_INCLUDE:health,info,gateway,refresh,routes,filters,globalfilters,prometheus,metrics}
       base-path: /actuator
   endpoint:
     health:
