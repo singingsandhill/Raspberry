@@ -1,18 +1,20 @@
 services:
   eureka-server:
-    image: softbank2025/server
+    build: ./server
     container_name: eureka-server
     ports:
       - "8761:8761"
     networks:
       - microservices
     environment:
+      - SERVER_PORT=8761
       - eureka.client.register-with-eureka=false
       - eureka.client.fetch-registry=false
       - eureka.server.wait-time-in-ms-when-sync-empty=0
+      - eureka.server.enable-self-preservation=false
 
   gateway:
-    image: softbank2025/gateway
+    build: ./gateway
     container_name: gateway
     ports:
       - "8080:8080"
@@ -22,9 +24,10 @@ services:
       - microservices
     environment:
       - eureka.client.service-url.defaultZone=http://eureka-server:8761/eureka/
+    restart: unless-stopped
 
   frontend:
-    image: softbank2025/fe
+    build: ./fe
     container_name: frontend
     ports:
       - "8081:8081"
@@ -34,9 +37,10 @@ services:
       - microservices
     environment:
       - eureka.client.service-url.defaultZone=http://eureka-server:8761/eureka/
+    restart: unless-stopped
 
   deploy:
-    image: softbank2025/deploy
+    build: ./deploy
     container_name: deploy
     ports:
       - "8082:8082"
@@ -46,9 +50,10 @@ services:
       - microservices
     environment:
       - eureka.client.service-url.defaultZone=http://eureka-server:8761/eureka/
+    restart: unless-stopped
 
   user:
-    image: softbank2025/user
+    build: ./user
     container_name: user
     ports:
       - "8083:8083"
@@ -58,6 +63,41 @@ services:
       - microservices
     environment:
       - eureka.client.service-url.defaultZone=http://eureka-server:8761/eureka/
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - eureka-server
+      - gateway
+      - frontend
+      - deploy
+      - user
+    networks:
+      - microservices
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/provisioning/alerting:/etc/grafana/provisioning/alerting:ro
+    depends_on:
+      - prometheus
+    networks:
+      - microservices
 
 networks:
   microservices:

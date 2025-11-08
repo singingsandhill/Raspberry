@@ -1,9 +1,24 @@
-FROM eclipse-temurin:17-jdk-focal
-
+FROM eclipse-temurin:17-jdk-focal AS builder
 WORKDIR /app
 
-COPY build/libs/*.jar app.jar
+COPY gradlew .
+COPY gradle ./gradle
+COPY build.gradle .
+COPY settings.gradle .
 
-EXPOSE 8080
+COPY server ./server
+COPY gateway ./gateway
+COPY fe ./fe
+COPY deploy ./deploy
+COPY user ./user
+
+RUN chmod +x ./gradlew && ./gradlew :deploy:bootJar -x test
+
+FROM eclipse-temurin:17-jre-focal
+WORKDIR /app
+
+COPY --from=builder /app/deploy/build/libs/*.jar app.jar
+
+EXPOSE 8082
 
 ENTRYPOINT ["java", "-jar", "app.jar"]
