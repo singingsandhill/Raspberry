@@ -156,7 +156,7 @@ jobs:
 
       # AWS SSM Run Command로 배포
       - name: Deploy to EC2 via AWS SSM
-        uses: aws-actions/amazon-ssm-send-command@v1
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           instance-ids: ${{ secrets.EC2_INSTANCE_ID }} # Secret: EC2 인스턴스 ID
           command: |
