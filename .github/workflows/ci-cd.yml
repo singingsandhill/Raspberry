@@ -14,7 +14,7 @@ permissions:
     security-events: write
 
 env:
-  DOCKER_REGISTRY: softbank2025  # DockerHub username
+  DOCKER_REGISTRY: kwa06001  # DockerHub username
   IMAGE_TAG: ${{ github.sha }}
 
 jobs:
@@ -123,24 +123,24 @@ jobs:
       - name: Update docker-compose.yml to use images
         run: |
           # docker-compose.yml의 'build:' 관련 라인을 'image:'로 교체
-          sed -i "s|build:\s*context: \.|image: softbank2025/server:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-          sed -i "/image: softbank2025\/server/! s|build:\s*./server|image: softbank2025/server:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "s|build:\s*context: \.|image: kwa06001/server:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "/image: kwa06001\/server/! s|build:\s*./server|image: kwa06001/server:${{ env.IMAGE_TAG }}|g" docker-compose.yml
           sed -i "/dockerfile: \.\/server\/Dockerfile/d" docker-compose.yml
           
-          sed -i "s|build:\s*context: \.|image: softbank2025/gateway:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-          sed -i "/image: softbank2025\/gateway/! s|build:\s*./gateway|image: softbank2025/gateway:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "s|build:\s*context: \.|image: kwa06001/gateway:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "/image: kwa06001\/gateway/! s|build:\s*./gateway|image: kwa06001/gateway:${{ env.IMAGE_TAG }}|g" docker-compose.yml
           sed -i "/dockerfile: \.\/gateway\/Dockerfile/d" docker-compose.yml
 
-          sed -i "s|build:\s*context: \.|image: softbank2025/fe:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-          sed -i "/image: softbank2025\/fe/! s|build:\s*./fe|image: softbank2025/fe:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "s|build:\s*context: \.|image: kwa06001/fe:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "/image: kwa06001\/fe/! s|build:\s*./fe|image: kwa06001/fe:${{ env.IMAGE_TAG }}|g" docker-compose.yml
           sed -i "/dockerfile: \.\/fe\/Dockerfile/d" docker-compose.yml
           
-          sed -i "s|build:\s*context: \.|image: softbank2025/deploy:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-          sed -i "/image: softbank2025\/deploy/! s|build:\s*./deploy|image: softbank2025/deploy:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "s|build:\s*context: \.|image: kwa06001/deploy:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "/image: kwa06001\/deploy/! s|build:\s*./deploy|image: kwa06001/deploy:${{ env.IMAGE_TAG }}|g" docker-compose.yml
           sed -i "/dockerfile: \.\/deploy\/Dockerfile/d" docker-compose.yml
           
-          sed -i "s|build:\s*context: \.|image: softbank2025/user:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-          sed -i "/image: softbank2025\/user/! s|build:\s*./user|image: softbank2025/user:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "s|build:\s*context: \.|image: kwa06001/user:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+          sed -i "/image: kwa06001\/user/! s|build:\s*./user|image: kwa06001/user:${{ env.IMAGE_TAG }}|g" docker-compose.yml
           sed -i "/dockerfile: \.\/user\/Dockerfile/d" docker-compose.yml
           
           echo "📝 Updated docker-compose.yml (to use images instead of build):"
@@ -208,24 +208,24 @@ jobs:
 
             # [!!] EC2에서 직접 sed 실행 [!!]
             echo "🔧 Updating docker-compose.yml on EC2 to use images..."
-            sed -i "s|build:\s*context: \.|image: softbank2025/server:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-            sed -i "/image: softbank2025\/server/! s|build:\s*./server|image: softbank2025/server:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+            sed -i "s|build:\s*context: \.|image: kwa06001/server:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+            sed -i "/image: kwa06001\/server/! s|build:\s*./server|image: kwa06001/server:${{ env.IMAGE_TAG }}|g" docker-compose.yml
             sed -i "/dockerfile: \.\/server\/Dockerfile/d" docker-compose.yml
             
-            sed -i "s|build:\s*context: \.|image: softbank2025/gateway:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-            sed -i "/image: softbank2025\/gateway/! s|build:\s*./gateway|image: softbank2025/gateway:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+            sed -i "s|build:\s*context: \.|image: kwa06001/gateway:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+            sed -i "/image: kwa06001\/gateway/! s|build:\s*./gateway|image: kwa06001/gateway:${{ env.IMAGE_TAG }}|g" docker-compose.yml
             sed -i "/dockerfile: \.\/gateway\/Dockerfile/d" docker-compose.yml
 
-            sed -i "s|build:\s*context: \.|image: softbank2025/fe:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-            sed -i "/image: softbank2025\/fe/! s|build:\s*./fe|image: softbank2025/fe:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+            sed -i "s|build:\s*context: \.|image: kwa06001/fe:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+            sed -i "/image: kwa06001\/fe/! s|build:\s*./fe|image: kwa06001/fe:${{ env.IMAGE_TAG }}|g" docker-compose.yml
             sed -i "/dockerfile: \.\/fe\/Dockerfile/d" docker-compose.yml
             
-            sed -i "s|build:\s*context: \.|image: softbank2025/deploy:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-            sed -i "/image: softbank2025\/deploy/! s|build:\s*./deploy|image: softbank2025/deploy:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+            sed -i "s|build:\s*context: \.|image: kwa06001/deploy:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+            sed -i "/image: kwa06001\/deploy/! s|build:\s*./deploy|image: kwa06001/deploy:${{ env.IMAGE_TAG }}|g" docker-compose.yml
             sed -i "/dockerfile: \.\/deploy\/Dockerfile/d" docker-compose.yml
             
-            sed -i "s|build:\s*context: \.|image: softbank2025/user:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-            sed -i "/image: softbank2025\/user/! s|build:\s*./user|image: softbank2025/user:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+            sed -i "s|build:\s*context: \.|image: kwa06001/user:${{ env.IMAGE_TAG }}|g" docker-compose.yml
+            sed -i "/image: kwa06001\/user/! s|build:\s*./user|image: kwa06001/user:${{ env.IMAGE_TAG }}|g" docker-compose.yml
             sed -i "/dockerfile: \.\/user\/Dockerfile/d" docker-compose.yml
 
             echo "📥 Pulling latest Docker images from Docker Hub..."
