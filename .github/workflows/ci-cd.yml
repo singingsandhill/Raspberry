@@ -18,7 +18,7 @@ env:
   IMAGE_TAG: ${{ github.sha }}
 
 jobs:
-  # Job 1: 빌드 단계를 제거하고, 테스트만 수행
+  # Job 1: 테스트만 수행
   test:
     name: Run Unit Tests
     runs-on: ubuntu-latest
@@ -36,16 +36,13 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
-      # 'build' 단계를 제거하고 'test'만 실행
       - name: Run Tests
         run: ./gradlew test
-        
-      # '.jar'를 업로드하는 아티팩트 단계 제거
 
-  # Job 2: Docker가 소스 코드를 직접 빌드하도록 수정
+  # Job 2: Docker 빌드, 스캔, 푸시
   docker-build-scan-push:
     name: Docker Build, Scan & Push
-    needs: test # Job 1의 이름이 'test'로 변경되었으므로 'needs'도 수정
+    needs: test
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -56,8 +53,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # '.jar'를 다운로드하는 아티팩트 단계 제거
-
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -67,7 +62,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # [!!] Docker 빌드 컨텍스트를 '.' (루트)로 수정 [!!]
       - name: Build Docker Image for ${{ matrix.service }}
         run: |
           IMAGE_NAME="${{ env.DOCKER_REGISTRY }}/${{ matrix.service }}"
@@ -75,9 +69,8 @@ jobs:
             -t $IMAGE_NAME:${{ env.IMAGE_TAG }} \
             -t $IMAGE_NAME:latest \
             -f ./${{ matrix.service }}/Dockerfile \
-            .  # <-- 빌드 컨텍스트를 프로젝트 루트로 변경
+            .  # 빌드 컨텍스트를 프로젝트 루트로 변경
 
-      # Trivy 스캔 (이하 동일)
       - name: Run Trivy Security Scan
         uses: aquasecurity/trivy-action@master
         with:
@@ -109,7 +102,7 @@ jobs:
           docker push $IMAGE_NAME:latest
           echo "✅ Pushed: $IMAGE_NAME:${{ env.IMAGE_TAG }} and latest"
 
-  # Job 3: EC2 배포 (AWS 자격증명 및 SSM 방식으로 수정됨)
+  # Job 3: EC2 배포 (AWS 자격증명 및 SSM 방식)
   deploy-to-ec2:
     name: Deploy to EC2
     needs: docker-build-scan-push
@@ -119,33 +112,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # [!!] sed 명령어를 'build:'를 'image:'로 바꾸도록 수정 [!!]
-      - name: Update docker-compose.yml to use images
-        run: |
-          # docker-compose.yml의 'build:' 관련 라인을 'image:'로 교체
-          sed -i "s|build:\s*context: \.|image: kwa06001/server:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-          sed -i "/image: kwa06001\/server/! s|build:\s*./server|image: kwa06001/server:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-          sed -i "/dockerfile: \.\/server\/Dockerfile/d" docker-compose.yml
-          
-          sed -i "s|build:\s*context: \.|image: kwa06001/gateway:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-          sed -i "/image: kwa06001\/gateway/! s|build:\s*./gateway|image: kwa06001/gateway:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-          sed -i "/dockerfile: \.\/gateway\/Dockerfile/d" docker-compose.yml
-
-          sed -i "s|build:\s*context: \.|image: kwa06001/fe:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-          sed -i "/image: kwa06001\/fe/! s|build:\s*./fe|image: kwa06001/fe:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-          sed -i "/dockerfile: \.\/fe\/Dockerfile/d" docker-compose.yml
-          
-          sed -i "s|build:\s*context: \.|image: kwa06001/deploy:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-          sed -i "/image: kwa06001\/deploy/! s|build:\s*./deploy|image: kwa06001/deploy:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-          sed -i "/dockerfile: \.\/deploy\/Dockerfile/d" docker-compose.yml
-          
-          sed -i "s|build:\s*context: \.|image: kwa06001/user:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-          sed -i "/image: kwa06001\/user/! s|build:\s*./user|image: kwa06001/user:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-          sed -i "/dockerfile: \.\/user\/Dockerfile/d" docker-compose.yml
-          
-          echo "📝 Updated docker-compose.yml (to use images instead of build):"
-          cat docker-compose.yml
-
       # AWS 자격증명 설정
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -154,12 +120,13 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # AWS SSM Run Command로 배포
+      # [!!] 수정: aws-region 추가 [!!]
       - name: Deploy to EC2 via AWS SSM
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: debugger24/action-aws-ssm-run-command@v1
         with:
-          instance-ids: ${{ secrets.EC2_INSTANCE_ID }} # Secret: EC2 인스턴스 ID
-          command: |
+          aws-region: ${{ secrets.AWS_REGION }} # 👈 [!!] 이 줄이 추가되었습니다.
+          instance-ids: ${{ secrets.EC2_INSTANCE_ID }}
+          commands: |
             #!/bin/bash
             set -e
 
@@ -172,7 +139,7 @@ jobs:
             echo "🔄 Pulling latest code..."
             git pull origin ${{ github.ref_name }}
             
-            # === 💡 스왑 메모리 설정 ===
+            # === 💡 스왑 메모리 설정 (유지) ===
             if [ -f /swapfile ]; then
               echo "ℹ️ Swap file /swapfile already exists."
             else
@@ -200,42 +167,16 @@ jobs:
             echo "🔧 Granting Docker socket permissions..."
             sudo chmod 666 /var/run/docker.sock
 
+            echo "🔧 No sed required. Using docker-compose.prod.yml."
+
             echo "📥 Pulling latest Docker images..."
-            # EC2 서버의 git pull로 docker-compose.yml이 덮어써지기 전에 
-            # CI Runner에서 수정한 docker-compose.yml을 EC2로 복사해야 합니다.
-            # 이 방식 대신, EC2에서 직접 sed를 실행하는 것이 더 낫습니다.
-            # 스크립트를 수정합니다.
+            docker-compose -f docker-compose.yml -f docker-compose.prod.yml pull
 
-            # [!!] EC2에서 직접 sed 실행 [!!]
-            echo "🔧 Updating docker-compose.yml on EC2 to use images..."
-            sed -i "s|build:\s*context: \.|image: kwa06001/server:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-            sed -i "/image: kwa06001\/server/! s|build:\s*./server|image: kwa06001/server:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-            sed -i "/dockerfile: \.\/server\/Dockerfile/d" docker-compose.yml
-            
-            sed -i "s|build:\s*context: \.|image: kwa06001/gateway:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-            sed -i "/image: kwa06001\/gateway/! s|build:\s*./gateway|image: kwa06001/gateway:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-            sed -i "/dockerfile: \.\/gateway\/Dockerfile/d" docker-compose.yml
-
-            sed -i "s|build:\s*context: \.|image: kwa06001/fe:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-            sed -i "/image: kwa06001\/fe/! s|build:\s*./fe|image: kwa06001/fe:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-            sed -i "/dockerfile: \.\/fe\/Dockerfile/d" docker-compose.yml
-            
-            sed -i "s|build:\s*context: \.|image: kwa06001/deploy:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-            sed -i "/image: kwa06001\/deploy/! s|build:\s*./deploy|image: kwa06001/deploy:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-            sed -i "/dockerfile: \.\/deploy\/Dockerfile/d" docker-compose.yml
-            
-            sed -i "s|build:\s*context: \.|image: kwa06001/user:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-            sed -i "/image: kwa06001\/user/! s|build:\s*./user|image: kwa06001/user:${{ env.IMAGE_TAG }}|g" docker-compose.yml
-            sed -i "/dockerfile: \.\/user\/Dockerfile/d" docker-compose.yml
-
-            echo "📥 Pulling latest Docker images from Docker Hub..."
-            docker-compose pull
-
-            echo "🛑 Stopping and removing corrupted containers..."
-            docker-compose down
+            echo "🛑 Stopping and removing old containers..."
+            docker-compose -f docker-compose.yml -f docker-compose.prod.yml down --remove-orphans
 
             echo "🚀 Starting services with new images..."
-            docker-compose up -d --remove-orphans
+            docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
 
             echo "🧹 Cleaning up old images..."
             docker image prune -a -f
@@ -244,14 +185,15 @@ jobs:
             sleep 15
 
             echo "✅ Deployment completed!"
-            docker-compose ps
+            docker-compose -f docker-compose.yml -f docker-compose.prod.yml ps
 
-      # AWS SSM으로 배포 검증
+      # [!!] 수정: aws-region 추가 [!!]
       - name: Verify Deployment
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: debugger24/action-aws-ssm-run-command@v1
         with:
+          aws-region: ${{ secrets.AWS_REGION }} # 👈 [!!] 이 줄이 추가되었습니다.
           instance-ids: ${{ secrets.EC2_INSTANCE_ID }}
-          command: |
+          commands: |
             #!/bin/bash
             set -e
 
@@ -269,14 +211,14 @@ jobs:
               exit 1
             fi
 
-            if curl -sf http://localhost:8080/actuator/health > /dev/null 2>&1; then
+            if curl -sf http://localhost:8080/actuator/health > /dev/null 2D> /dev/null 2>&1; then
               echo "✅ Gateway is healthy"
             else
               echo "⚠️ Gateway health check failed"
             fi
 
             echo "📊 Service Status:"
-            docker-compose ps
+            docker-compose -f docker-compose.yml -f docker-compose.prod.yml ps
 
       # Slack 알림 (선택사항)
       - name: Notify Deployment Status

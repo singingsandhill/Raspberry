@@ -1,0 +1,26 @@
+# docker-compose.prod.yml (새 파일)
+#
+# 이 파일은 배포 시에만 사용되며,
+# docker-compose.yml의 'build:' 설정을 'image:'로 덮어씁니다.
+
+services:
+  eureka-server:
+    image: kwa06001/server:latest # Docker Hub 이미지 사용
+    build: {} # 기존 build 설정 무효화
+
+  gateway:
+    image: kwa06001/gateway:latest
+    build: {}
+
+  frontend:
+    image: kwa06001/fe:latest
+    build: {}
+
+  deploy:
+    image: kwa06001/deploy:latest
+    build: {}
+
+  user:
+    image: kwa06001/user:latest
+    build: {}
+  # prometheus, grafana는 원본 파일의 설정을 그대로 사용
