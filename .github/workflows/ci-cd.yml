@@ -196,7 +196,7 @@ jobs:
       # Trivy 스캔 (백그라운드, 블로킹 없음)
       - name: Run Trivy scan
         uses: aquasecurity/trivy-action@master
-        continue-on-error: true
+        continue-on-error: false
         with:
           image-ref: ${{ env.DOCKER_REGISTRY }}/${{ matrix.service }}:${{ env.IMAGE_TAG }}
           format: 'sarif'
