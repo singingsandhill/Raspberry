@@ -178,7 +178,7 @@ jobs:
       - name: Create optimized Dockerfile
         run: |
           cat > ${{ matrix.service }}/Dockerfile.fast << 'EOF'
-          FROM ghcr.io/eclipse-temurin/jre:17-focal
+          FROM ghcr.io/eclipse-temurin/jre:17-jre
           WORKDIR /app
           COPY ${{ matrix.service }}/build/libs/*.jar app.jar
           EXPOSE 8080
