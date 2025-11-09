@@ -383,7 +383,7 @@ jobs:
             --parameters "commands=[\"echo $ENCODED_SCRIPT | base64 -d | bash\"]" \
             --timeout-seconds 120 \
             --output text \
-            --query 'Command.Id')
+            --query 'Command.CommandId')
           
           sleep 8
           
