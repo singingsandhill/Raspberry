@@ -256,7 +256,7 @@ jobs:
           
           echo "🔄 Pulling latest code..."
           git fetch origin 
-          git reset --hard $GITHUB_SHA
+          git reset --hard origin/main
           
           # 스왑 체크 (간소화)
           if ! sudo swapon --show | grep -q "/swapfile" && [ ! -f /swapfile ]; then
@@ -287,15 +287,8 @@ jobs:
           done
           wait
           
-          echo "🛑 Stopping and removing old services..." 
-          docker-compose stop $SERVICES || true              
-          docker-compose rm -f $SERVICES || true           
-          
-          echo "🚀 Creating new services..."              
-          docker-compose up -d --no-deps $SERVICES
-
-          echo "📊 Ensuring monitoring services are running..."
-          docker-compose up -d prometheus grafana
+          echo "🔄 Recreating services..."
+          docker-compose up -d --no-deps --force-recreate $SERVICES
           
           echo "⏳ Waiting 15s..."
           sleep 15
