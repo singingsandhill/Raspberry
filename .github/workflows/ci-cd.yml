@@ -15,7 +15,6 @@ env:
   IMAGE_TAG: ${{ github.sha }}
 
 jobs:
-  # 변경된 서비스 감지 + 빌드를 한 번에
   build-jars:
     name: Build All JARs
     runs-on: ubuntu-latest
@@ -141,7 +140,6 @@ jobs:
             user/build/libs/*.jar
           retention-days: 1
 
-  # 5개 서비스 완전 병렬 빌드
   docker-build-scan-push:
     name: Docker Build & Push
     needs: build-jars
@@ -170,11 +168,10 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      # 최적화된 Dockerfile 사용 (JAR 파일 직접 복사)
       - name: Create optimized Dockerfile
         run: |
           cat > ${{ matrix.service }}/Dockerfile.fast << 'EOF'
-          FROM eclipse-temurin:17-jre-focal
+          FROM ghcr.io/eclipse-temurin/jre:17-focal
           WORKDIR /app
           COPY ${{ matrix.service }}/build/libs/*.jar app.jar
           EXPOSE 8080
@@ -190,10 +187,13 @@ jobs:
           tags: |
             ${{ env.DOCKER_REGISTRY }}/${{ matrix.service }}:${{ env.IMAGE_TAG }}
             ${{ env.DOCKER_REGISTRY }}/${{ matrix.service }}:latest
-          cache-from: type=registry,ref=${{ env.DOCKER_REGISTRY }}/${{ matrix.service }}:buildcache
-          cache-to: type=registry,ref=${{ env.DOCKER_REGISTRY }}/${{ matrix.service }}:buildcache,mode=max
+          cache-from: |
+            type=registry,ref=${{ env.DOCKER_REGISTRY }}/${{ matrix.service }}:buildcache
+            type=gha
+          cache-to: |
+            type=registry,ref=${{ env.DOCKER_REGISTRY }}/${{ matrix.service }}:buildcache,mode=max
+            type=gha,mode=max
 
-      # Trivy 스캔 (백그라운드, 블로킹 없음)
       - name: Run Trivy scan
         uses: aquasecurity/trivy-action@master
         continue-on-error: false
@@ -212,12 +212,20 @@ jobs:
           sarif_file: 'trivy-results-${{ matrix.service }}.sarif'
           category: 'trivy-${{ matrix.service }}'
 
-  # 배포
+      - name: Upload Trivy results to S3
+        if: always()
+        run: |
+          aws s3 cp ./trivy-results-${{ matrix.service }}.sarif s3://kwa06001-sarif-reports/sarif/${{ env.IMAGE_TAG }}/trivy-${{ matrix.service }}.sarif
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+
   deploy-to-ec2:
     name: Deploy to EC2
     needs: [build-jars, docker-build-scan-push]
     runs-on: ubuntu-latest
-    if: (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/heads/feat/')) && needs.build-jars.outputs.has-changes == 'true' # ⬅️ 테스트를 위해 feat/ 브랜치도 허용 (선택 사항)
+    if: (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/heads/feat/')) && needs.build-jars.outputs.has-changes == 'true'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -256,7 +264,7 @@ jobs:
           
           echo "🔄 Pulling latest code..."
           git fetch origin 
-          git reset --hard $GITHUB_SHA # ⬅️ 1. 'origin/main'이 아닌 현재 커밋(SHA)을 체크아웃하도록 수정
+          git reset --hard $GITHUB_SHA
           
           # 스왑 체크 (간소화)
           if ! sudo swapon --show | grep -q "/swapfile" && [ ! -f /swapfile ]; then
@@ -287,15 +295,15 @@ jobs:
           done
           wait
           
-          echo "🛑 Stopping and removing old services..."   # ⬅️ 2. 기존 컨테이너 중지
-          docker-compose stop $SERVICES || true               # ⬅️ 3. 기존 컨테이너 삭제
-          docker-compose rm -f $SERVICES || true            # ⬅️ 4.
+          echo "🛑 Stopping and removing old services..."
+          docker-compose stop $SERVICES || true
+          docker-compose rm -f $SERVICES || true
           
-          echo "🚀 Creating new services..."                # ⬅️ 5. 새 컨테이너 생성
-          docker-compose up -d --no-deps $SERVICES          # ⬅️ 6. --force-recreate 플래그 제거
+          echo "🚀 Creating new services..."
+          docker-compose up -d --no-deps $SERVICES
           
-          echo "📊 Ensuring monitoring services are running..." # ⬅️ 7. 모니터링 서비스 실행
-          docker-compose up -d prometheus grafana              # ⬅️ 8.
+          echo "📊 Ensuring monitoring services are running..."
+          docker-compose up -d prometheus grafana
           
           echo "⏳ Waiting 15s..."
           sleep 15
@@ -314,7 +322,7 @@ jobs:
             --parameters "commands=[\"echo $ENCODED_SCRIPT | base64 -d > /tmp/deploy.sh && chmod +x /tmp/deploy.sh && DOCKERHUB_PASSWORD='${{ secrets.DOCKERHUB_PASSWORD }}' DOCKERHUB_USERNAME='${{ secrets.DOCKERHUB_USERNAME }}' GITHUB_SHA='${{ github.sha }}' CHANGED_SERVICES='$SERVICES' bash /tmp/deploy.sh\"]" \
             --timeout-seconds 300 \
             --output text \
-            --query 'Command.Id')
+            --query 'Command.CommandId')
           
           echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
           echo "✅ SSM Command ID: $COMMAND_ID"
@@ -400,6 +408,7 @@ jobs:
             echo "✅ Deployment successful!"
             echo "🔖 Image tag: ${{ github.sha }}"
             echo "📦 Services: ${{ steps.services.outputs.list }}"
+            echo "🛡️ 보안 리포트: http://<your-ec2-or-domain-address>:8080/security/${{ github.sha }}"
           else
             echo "❌ Deployment failed!"
             exit 1
