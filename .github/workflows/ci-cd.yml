@@ -217,7 +217,7 @@ jobs:
     name: Deploy to EC2
     needs: [build-jars, docker-build-scan-push]
     runs-on: ubuntu-latest
-    if: (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && needs.build-jars.outputs.has-changes == 'true'
+    if: (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/heads/feat/')) && needs.build-jars.outputs.has-changes == 'true' # ⬅️ 테스트를 위해 feat/ 브랜치도 허용 (선택 사항)
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -256,7 +256,7 @@ jobs:
           
           echo "🔄 Pulling latest code..."
           git fetch origin 
-          git reset --hard origin/main
+          git reset --hard $GITHUB_SHA # ⬅️ 1. 'origin/main'이 아닌 현재 커밋(SHA)을 체크아웃하도록 수정
           
           # 스왑 체크 (간소화)
           if ! sudo swapon --show | grep -q "/swapfile" && [ ! -f /swapfile ]; then
@@ -287,8 +287,15 @@ jobs:
           done
           wait
           
-          echo "🔄 Recreating services..."
-          docker-compose up -d --no-deps --force-recreate $SERVICES
+          echo "🛑 Stopping and removing old services..."   # ⬅️ 2. 기존 컨테이너 중지
+          docker-compose stop $SERVICES || true               # ⬅️ 3. 기존 컨테이너 삭제
+          docker-compose rm -f $SERVICES || true            # ⬅️ 4.
+          
+          echo "🚀 Creating new services..."                # ⬅️ 5. 새 컨테이너 생성
+          docker-compose up -d --no-deps $SERVICES          # ⬅️ 6. --force-recreate 플래그 제거
+          
+          echo "📊 Ensuring monitoring services are running..." # ⬅️ 7. 모니터링 서비스 실행
+          docker-compose up -d prometheus grafana              # ⬅️ 8.
           
           echo "⏳ Waiting 15s..."
           sleep 15
@@ -307,7 +314,7 @@ jobs:
             --parameters "commands=[\"echo $ENCODED_SCRIPT | base64 -d > /tmp/deploy.sh && chmod +x /tmp/deploy.sh && DOCKERHUB_PASSWORD='${{ secrets.DOCKERHUB_PASSWORD }}' DOCKERHUB_USERNAME='${{ secrets.DOCKERHUB_USERNAME }}' GITHUB_SHA='${{ github.sha }}' CHANGED_SERVICES='$SERVICES' bash /tmp/deploy.sh\"]" \
             --timeout-seconds 300 \
             --output text \
-            --query 'Command.CommandId')
+            --query 'Command.Id')
           
           echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
           echo "✅ SSM Command ID: $COMMAND_ID"
@@ -376,7 +383,7 @@ jobs:
             --parameters "commands=[\"echo $ENCODED_SCRIPT | base64 -d | bash\"]" \
             --timeout-seconds 120 \
             --output text \
-            --query 'Command.CommandId')
+            --query 'Command.Id')
           
           sleep 8
           
